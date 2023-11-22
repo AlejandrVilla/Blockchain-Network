@@ -1,0 +1,35 @@
+dir: bft-congfig -> base para crear el canal con bft
+    * file: configtx.yaml ->
+
+dir: compose -> contiene archivos para crear la red
+    * file: compose-bft-test-net.yaml -> crear red con 4 orderes, 2 orgs y 1 peer por org con bft
+    * file: compose-ca.yaml -> crea contenedores para los ca de los orderes y las org
+    * file: compose-couch.yaml ->
+    * file: compose-test-net.yaml -> crear red con 2 orderer, 2 orgs y 2 peer por org con raft
+    * dir: docker ->
+    * dir: podman ->
+
+dir: configtx -> base para crear el canal simple
+    * file: configtx.yaml -> 2 orderer y 2 org con 2 peer cada una
+
+dir: organizations -> material con las credencialese
+    * dir: cryptogen -> material para crear las credenciales usando cryptogen 
+        * file: crpto-config-orderer.yaml -> crea las credenciales para 4 orderes
+        * file: crypto-config-org1.yaml -> crea las credenciales para los peers de la organizacion 1
+        * file: crypto-config-org2.yaml -> crea las credenciales para los peers de la organizacion 2
+    * dir: fabric-ca -> certificados
+        * dir: ordererOrg -> certificados para los orderers
+        * dir: org1 -> certificados para la org1
+        * dir: org2 -> certificados para la org2
+        * file: registerEnroll.sh -> crea los directorios y agrega los certificados para cada org y orderers
+
+file: network.sh -> crear red, canal, despliega CC, etc
+    funcion:
+    * clearContainers -> eliminar contenedores
+    * removeUnwantedImages -> elimina imagenes 
+    * createOrgs -> crea credenciales para los nodos (orderes, peers)
+    * networkUp -> llama funcion createOrgs y crea contenedores para los orederers y peers
+    * createChannel -> llama funcion createChannel (scripts/createChannel.sh) y llama funcion networkUp
+    * deployCC -> agrega chaincode a los peers y al canal
+    * deployCCAAS ->
+    * networkDown -> detiene contenedores, elimina imagenes, etc. Usa funciones clearContainers y removeUnwantedImages
