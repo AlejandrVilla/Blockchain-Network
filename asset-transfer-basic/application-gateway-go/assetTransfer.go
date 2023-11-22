@@ -2,10 +2,8 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -15,10 +13,8 @@ import (
 
 	"github.com/hyperledger/fabric-gateway/pkg/client"
 	"github.com/hyperledger/fabric-gateway/pkg/identity"
-	"github.com/hyperledger/fabric-protos-go-apiv2/gateway"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -38,19 +34,17 @@ var ID int = 0
 var assetId = fmt.Sprintf("Asset%d", ID)
 
 func main() {
-	// The gRPC client connection should be shared by all Gateway connections to this endpoint
 	clientConnection := newGrpcConnection()
 	defer clientConnection.Close()
 
 	id := newIdentity()
 	sign := newSign()
-
 	// Create a Gateway connection for a specific client identity
 	gw, err := client.Connect(
 		id,
 		client.WithSign(sign),
 		client.WithClientConnection(clientConnection),
-		// Default timeouts for different gRPC calls
+
 		client.WithEvaluateTimeout(5*time.Second),
 		client.WithEndorseTimeout(15*time.Second),
 		client.WithSubmitTimeout(5*time.Second),
@@ -61,7 +55,6 @@ func main() {
 	}
 	defer gw.Close()
 
-	// Override default values for chaincode and channel name as they may differ in testing contexts.
 	chaincodeName := "basic"
 	if ccname := os.Getenv("CHAINCODE_NAME"); ccname != "" {
 		chaincodeName = ccname
@@ -75,41 +68,33 @@ func main() {
 	network := gw.GetNetwork(channelName)
 	contract := network.GetContract(chaincodeName)
 
-	// createAsset(contract)
-	// ID++
-	// assetId = fmt.Sprintf("Asset%d", ID)
-	// createAsset(contract)
+	// use the TSP function in the chaincode
 	// testTSP(contract, "asset", 10)
 
-	// initLedger(contract)
-	// getAllAssets(contract)
-
-	quit := make(chan bool)
-
-	var total int = 100
+	var total int = 1000
+	// using waitgrous for concurrency
 	var wg sync.WaitGroup
 	wg.Add(total)
 
 	start := time.Now()
 	for ID < total {
-		// createAsset2(contract)
-		go createAsset(contract, &wg)
+		// createAsset2(contract)			// serial way
+		go createAsset(contract, &wg) // concurrency way
 		ID++
 	}
-	//<-quit
 	wg.Wait()
 	end := time.Now()
 	tiempo := end.Sub(start)
-	//tiempoTotal := end-start
-	tiempoSegundos := tiempo.Seconds()
-	fmt.Printf("Transacciones: %d\n", total)
-	fmt.Println("Tiempo de ejecución:", tiempoSegundos)
-	TSP := float64(total) / tiempoSegundos
-	fmt.Println("Transacciones por segundo:", TSP)
 
-	close(quit)
+	tiempoSegundos := tiempo.Seconds()
+	fmt.Printf("Transactions: %d\n", total)
+	fmt.Println("Execution time:", tiempoSegundos)
+	TSP := float64(total) / tiempoSegundos
+	fmt.Println("Transactions per second:", TSP)
 
 	// fmt.Printf("tipo %T", tiempoTotal)
+
+	// initLedger(contract)
 	// getAllAssets(contract)
 	// readAssetByID(contract)
 	// transferAssetAsync(contract)
@@ -135,7 +120,7 @@ func newGrpcConnection() *grpc.ClientConn {
 	return connection
 }
 
-// newIdentity creates a client identity for this Gateway connection using an X.509 certificate.
+// newIdentity creates a client identity for this Gateway connection
 func newIdentity() *identity.X509Identity {
 	certificate, err := loadCertificate(certPath)
 	if err != nil {
@@ -184,19 +169,15 @@ func newSign() identity.Sign {
 }
 
 func testTSP(contract *client.Contract, id string, limit int) {
-	// fmt.Println("Probando transacciones por secundo")
-	// var id string = "Asset"
+	// fmt.Println("Testing transactions per second")
 	_, err := contract.SubmitTransaction("TestTSP", id, strconv.Itoa(limit))
 	if err != nil {
 		panic(fmt.Errorf("failed to submit transaction: %w", err))
 	}
 }
 
-// This type of transaction would typically only be run once by an application the first time it was started after its
-// initial deployment. A new version of the chaincode deployed later would likely not need to run an "init" function.
+// initial deployment
 func initLedger(contract *client.Contract) {
-	fmt.Printf("\n--> Submit Transaction: InitLedger, function creates the initial set of assets on the ledger \n")
-
 	_, err := contract.SubmitTransaction("InitLedger")
 	if err != nil {
 		panic(fmt.Errorf("failed to submit transaction: %w", err))
@@ -205,10 +186,7 @@ func initLedger(contract *client.Contract) {
 	fmt.Printf("*** Transaction committed successfully\n")
 }
 
-// Evaluate a transaction to query ledger state.
 func getAllAssets(contract *client.Contract) {
-	fmt.Println("\n--> Evaluate Transaction: GetAllAssets, function returns all the current assets on the ledger")
-
 	evaluateResult, err := contract.EvaluateTransaction("GetAllAssets")
 	if err != nil {
 		panic(fmt.Errorf("failed to evaluate transaction: %w", err))
@@ -218,38 +196,26 @@ func getAllAssets(contract *client.Contract) {
 	fmt.Printf("*** Result:%s\n", result)
 }
 
-// sin concurrencia
+// without concurrency
 func createAsset2(contract *client.Contract) {
 	proposal, _ := contract.NewProposal("CreateAsset", client.WithArguments(assetId, "yellow", "5", "Alejandro", "1300"))
 	proposal.Endorse()
 	//transaction.Submit()
 }
 
-// con concurrencia
+// with concurrency
 func createAsset(contract *client.Contract, wg *sync.WaitGroup) {
 
 	//ID++
 	defer wg.Done()
 	proposal, _ := contract.NewProposal("CreateAsset", client.WithArguments(assetId, "yellow", "5", "Alejandro", "1300"))
+	// send the proposal to the endorsers
 	proposal.Endorse()
+	// send the transaction to the ordering nodes
 	// transaction.Submit()
-
-	// _, err := contract.SubmitTransaction("CreateAsset", assetId, "yellow", "5", "Alejandro", "1300")
-	// if err != nil {
-	// 	panic(fmt.Errorf("failed to submit transaction: %w", err))
-	// }
-	// *counter++
-	// if *counter == total {
-	// 	quit <- true
-	// }
-	// fmt.Printf("\n--> Submit Transaction: CreateAsset, creates new asset with ID, Color, Size, Owner and AppraisedValue arguments \n")
-	// fmt.Printf("*** Transaction committed successfully\n")
 }
 
-// Evaluate a transaction by assetID to query ledger state.
 func readAssetByID(contract *client.Contract) {
-	fmt.Printf("\n--> Evaluate Transaction: ReadAsset, function returns asset attributes\n")
-
 	evaluateResult, err := contract.EvaluateTransaction("ReadAsset", assetId)
 	if err != nil {
 		panic(fmt.Errorf("failed to evaluate transaction: %w", err))
@@ -259,11 +225,7 @@ func readAssetByID(contract *client.Contract) {
 	fmt.Printf("*** Result:%s\n", result)
 }
 
-// Submit transaction asynchronously, blocking until the transaction has been sent to the orderer, and allowing
-// this thread to process the chaincode response (e.g. update a UI) without waiting for the commit notification
 func transferAssetAsync(contract *client.Contract) {
-	fmt.Printf("\n--> Async Submit Transaction: TransferAsset, updates existing asset owner")
-
 	submitResult, commit, err := contract.SubmitAsync("TransferAsset", client.WithArguments(assetId, "Mark"))
 	if err != nil {
 		panic(fmt.Errorf("failed to submit transaction asynchronously: %w", err))
@@ -279,51 +241,6 @@ func transferAssetAsync(contract *client.Contract) {
 	}
 
 	fmt.Printf("*** Transaction committed successfully\n")
-}
-
-// Submit transaction, passing in the wrong number of arguments ,expected to throw an error containing details of any error responses from the smart contract.
-func exampleErrorHandling(contract *client.Contract) {
-	fmt.Println("\n--> Submit Transaction: UpdateAsset asset70, asset70 does not exist and should return an error")
-
-	_, err := contract.SubmitTransaction("UpdateAsset", "asset70", "blue", "5", "Tomoko", "300")
-	if err == nil {
-		panic("******** FAILED to return an error")
-	}
-
-	fmt.Println("*** Successfully caught the error:")
-
-	switch err := err.(type) {
-	case *client.EndorseError:
-		fmt.Printf("Endorse error for transaction %s with gRPC status %v: %s\n", err.TransactionID, status.Code(err), err)
-	case *client.SubmitError:
-		fmt.Printf("Submit error for transaction %s with gRPC status %v: %s\n", err.TransactionID, status.Code(err), err)
-	case *client.CommitStatusError:
-		if errors.Is(err, context.DeadlineExceeded) {
-			fmt.Printf("Timeout waiting for transaction %s commit status: %s", err.TransactionID, err)
-		} else {
-			fmt.Printf("Error obtaining commit status for transaction %s with gRPC status %v: %s\n", err.TransactionID, status.Code(err), err)
-		}
-	case *client.CommitError:
-		fmt.Printf("Transaction %s failed to commit with status %d: %s\n", err.TransactionID, int32(err.Code), err)
-	default:
-		panic(fmt.Errorf("unexpected error type %T: %w", err, err))
-	}
-
-	// Any error that originates from a peer or orderer node external to the gateway will have its details
-	// embedded within the gRPC status error. The following code shows how to extract that.
-	statusErr := status.Convert(err)
-
-	details := statusErr.Details()
-	if len(details) > 0 {
-		fmt.Println("Error Details:")
-
-		for _, detail := range details {
-			switch detail := detail.(type) {
-			case *gateway.ErrorDetail:
-				fmt.Printf("- address: %s, mspId: %s, message: %s\n", detail.Address, detail.MspId, detail.Message)
-			}
-		}
-	}
 }
 
 // Format JSON data
