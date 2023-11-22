@@ -15,8 +15,6 @@ type SmartContract struct {
 }
 
 // Asset describes basic details of what makes up a simple asset
-// Insert struct field in alphabetic order => to achieve determinism across languages
-// golang keeps the order when marshal to json but doesn't order automatically
 type Asset struct {
 	AppraisedValue int    `json:"AppraisedValue"`
 	Color          string `json:"Color"`
@@ -25,19 +23,17 @@ type Asset struct {
 	Size           int    `json:"Size"`
 }
 
+// test TSP by the chaincode itself
 func (s *SmartContract) TestTSP(ctx contractapi.TransactionContextInterface, id string, limit int) error {
-	// var id string = "Asset"
 	asset := Asset{
 		ID:             id,
-		Color:          "Verde",
+		Color:          "Green",
 		Size:           10,
 		Owner:          "Visha",
 		AppraisedValue: 500,
 	}
 
 	var assets []Asset
-
-	// limit := 5
 
 	for i := 0; i < limit; i++ {
 		asset.ID = id + strconv.Itoa(i)
@@ -46,24 +42,23 @@ func (s *SmartContract) TestTSP(ctx contractapi.TransactionContextInterface, id 
 
 	start := time.Now()
 	for _, asset_ := range assets {
-		assetJson, _ := json.Marshal(asset_)
-		// if err != nil {
-		// 	return err
-		// }
-		//go ctx.GetStub().PutState(asset_.ID, assetJson)
-		ctx.GetStub().PutState(asset_.ID, assetJson)
-		// if err != nil {
-		// 	return fmt.Errorf("failed to put to world state. %v", err)
-		// }
+		assetJson, err := json.Marshal(asset_)
+		if err != nil {
+			return err
+		}
+		err = ctx.GetStub().PutState(asset_.ID, assetJson)
+		if err != nil {
+			return fmt.Errorf("failed to put to world state. %v", err)
+		}
 	}
 	end := time.Now()
 
 	tiempo := end.Sub(start)
 	tiempoSegundos := tiempo.Seconds()
-	fmt.Printf("Transacciones: %d\n", limit)
-	fmt.Println("Tiempo de ejecución:", tiempoSegundos)
+	fmt.Printf("Transactions: %d\n", limit)
+	fmt.Println("Execution time:", tiempoSegundos)
 	TSP := float64(limit) / tiempoSegundos
-	fmt.Println("Transacciones por segundo:", TSP)
+	fmt.Println("Transactions per second:", TSP)
 
 	return nil
 }
@@ -222,8 +217,6 @@ func (s *SmartContract) TransferAsset(ctx contractapi.TransactionContextInterfac
 
 // GetAllAssets returns all assets found in world state
 func (s *SmartContract) GetAllAssets(ctx contractapi.TransactionContextInterface) ([]*Asset, error) {
-	// range query with empty string for startKey and endKey does an
-	// open-ended query of all assets in the chaincode namespace.
 	resultsIterator, err := ctx.GetStub().GetStateByRange("", "")
 	if err != nil {
 		return nil, err
