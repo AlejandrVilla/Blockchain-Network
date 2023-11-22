@@ -10,13 +10,7 @@ The asset transfer basic sample demonstrates:
 ## About the sample
 
 This sample includes smart contract and application code in go language. This sample shows create, read, update, transfer and delete of an asset.
-
-### Application
-
-Follow the execution flow in the client application code, and corresponding output on running the application. Pay attention to the sequence of:
-
-- Transaction invocations (console output like "**--> Submit Transaction**" and "**--> Evaluate Transaction**").
-- Results returned by transactions (console output like "**\*\*\* Result**").
+Also you can test transactions per second (TSP).
 
 ### Smart Contract
 
