@@ -12,8 +12,8 @@ The network structure is as follow
     - Peer 1
 - Ordering service
     - Orderer node 1
-    - Ordered node 2
-- Consensu algorithm 
+    - Orderer node 2
+- Consensus algorithm 
     - Raft
 
 ## Smart contract and application gateway
