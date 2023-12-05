@@ -46,20 +46,31 @@ The smart contract implements the following functions to support the application
 
 Follow these steps in order:
 
-1. Create the test network and a channel with CA (from the `Rnetwork` folder).
+1. Get the installation script
+
+    ```
+    curl -sSLO https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh && chmod +x install-fabric.sh
+    ```
+
+2. Get the Fabric binaries and the latest Docker images
+
+    ```
+    ./install-fabric.sh docker binary
+    ```
+
+3. Create the network and a channel with CA (from the `Rnetwork` folder).
    ```
    ./runNetwork.sh
    ```
     This will show a simple menu
-2. Deploy the smart contract implementation.
+4. Deploy the smart contract implementation.
     - Inside the menu you will see an option to deploy the Chaincode
     - Or you can use the following instruction
    ```
    ./network.sh deployCC -ccn basic -ccp ../asset-transfer-basic/chaincode-go/ -ccl go
    ```
-3. Run the application (from the `asset-transfer-basic` folder).
+5. Run the Go application (from the `asset-transfer-basic` folder).
    ```
-   # To run the Go sample application
    cd application-gateway-go
    go run .
    ```
